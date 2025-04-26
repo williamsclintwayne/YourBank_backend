@@ -91,6 +91,14 @@ export const deleteAccount = async (req, res, next) => {
 
 export const generateStatementPDF = async (req, res) => {
   try {
+    // Define Color Palette
+    const COLOR_PRIMARY_ACCENT_MINT = '#A8E6CF'; // Not used directly in this version, but defined
+    const COLOR_SECONDARY_ACCENT_TEAL = '#2D7A8A';
+    const COLOR_TERTIARY_ACCENT_PEACH = '#FFD3B6'; // Not used directly in this version, but defined
+    const COLOR_TEXT_DARK_CHARCOAL = '#333333';
+    const COLOR_TEXT_MEDIUM_GREY = '#666666';
+    const COLOR_WHITE = '#FFFFFF'; // jsPDF default background
+
     const accountId = req.params.accountId;
     const account = await Account.findById(accountId).populate('userId'); // Populate user details
     if (!account) {
@@ -107,59 +115,94 @@ export const generateStatementPDF = async (req, res) => {
     const transactions = await Transaction.find({ accountId }).sort({ date: -1 });
     if (!transactions.length) {
       console.error(`No transactions found for account ID: ${accountId}`);
+      // Consider if you want to send an empty statement or an error
     }
 
     const doc = new jsPDF();
+    doc.setFont('helvetica'); // Set default font
 
     // Add Bank Header
     doc.setFontSize(18);
     doc.setFont('helvetica', 'bold');
+    doc.setTextColor(COLOR_SECONDARY_ACCENT_TEAL); // Deep Teal
     doc.text('YourBank', 105, 15, { align: 'center' });
-    doc.setFontSize(12);
+    doc.setFontSize(10); // Smaller size for address
     doc.setFont('helvetica', 'normal');
+    doc.setTextColor(COLOR_TEXT_MEDIUM_GREY); // Medium Grey
     doc.text('123 Bank Street, Financial City, 10001', 105, 22, { align: 'center' });
     doc.text('Phone: +1 234 567 890 | Email: support@yourbank.com', 105, 28, { align: 'center' });
+
+    // Reset text color for subsequent sections
+    doc.setTextColor(COLOR_TEXT_DARK_CHARCOAL); // Dark Charcoal
 
     // Add Client Information
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
+    doc.setTextColor(COLOR_SECONDARY_ACCENT_TEAL); // Deep Teal
     doc.text('Client Information', 10, 40);
     doc.setFontSize(12);
     doc.setFont('helvetica', 'normal');
+    doc.setTextColor(COLOR_TEXT_DARK_CHARCOAL); // Dark Charcoal
     doc.text(`Name: ${account.userId.name}`, 10, 48);
     doc.text(`Address: ${profile.address || 'N/A'}`, 10, 54); // Use address from the profile
 
     // Add Account Information
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
+    doc.setTextColor(COLOR_SECONDARY_ACCENT_TEAL); // Deep Teal
     doc.text('Account Information', 10, 66);
     doc.setFontSize(12);
     doc.setFont('helvetica', 'normal');
+    doc.setTextColor(COLOR_TEXT_DARK_CHARCOAL); // Dark Charcoal
     doc.text(`Account Name: ${account.name}`, 10, 74);
     doc.text(`Account Number: ${account.accountNumber}`, 10, 80);
-    doc.text(`Balance: R ${account.balance}`, 10, 86);
+    doc.text(`Balance: R ${account.balance.toFixed(2)}`, 10, 86); // Ensure balance is formatted
 
     // Add Transactions Table Header
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
+    doc.setTextColor(COLOR_SECONDARY_ACCENT_TEAL); // Deep Teal
     doc.text('Transaction History', 10, 98);
     doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
+    doc.setTextColor(COLOR_TEXT_DARK_CHARCOAL); // Dark Charcoal for table headers
+    // Optional: Add a light background fill for the header row
+    // doc.setFillColor(247, 249, 250); // Light Grey #F7F9FA
+    // doc.rect(10, 100, 190, 8, 'F'); // Draw background rectangle
     doc.text('Date', 10, 106);
     doc.text('Reference', 60, 106);
-    doc.text('Amount (R)', 160, 106);
+    doc.text('Amount (R)', 190, 106, { align: 'right' }); // Align amount right
 
     // Add Transactions Table Rows
     doc.setFont('helvetica', 'normal');
+    doc.setTextColor(COLOR_TEXT_DARK_CHARCOAL); // Dark Charcoal for table data
     let y = 114;
-    transactions.forEach((transaction) => {
+    transactions.forEach((transaction, index) => {
+      // Optional: Alternate row background color
+      // if (index % 2 === 0) {
+      //   doc.setFillColor(255, 255, 255); // White
+      // } else {
+      //   doc.setFillColor(247, 249, 250); // Light Grey #F7F9FA
+      // }
+      // doc.rect(10, y - 5, 190, 8, 'F'); // Draw background rectangle for row
+
       doc.text(new Date(transaction.date).toLocaleDateString(), 10, y);
-      doc.text(transaction.reference, 60, y);
-      doc.text(transaction.amount.toFixed(2), 160, y, { align: 'right' });
+      doc.text(transaction.reference || 'N/A', 60, y, { maxWidth: 100 }); // Add max width for long refs
+      doc.text(transaction.amount.toFixed(2), 190, y, { align: 'right' }); // Align amount right
       y += 8;
-      if (y > 280) {
+      if (y > 280) { // Check for page break
         doc.addPage();
-        y = 20;
+        y = 20; // Reset y position for new page
+        // Optional: Redraw headers on new page
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(COLOR_TEXT_DARK_CHARCOAL);
+        doc.text('Date', 10, y);
+        doc.text('Reference', 60, y);
+        doc.text('Amount (R)', 190, y, { align: 'right' });
+        y += 8;
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(COLOR_TEXT_DARK_CHARCOAL);
       }
     });
 
@@ -176,31 +219,118 @@ export const generateStatementPDF = async (req, res) => {
 
 export const emailStatement = async (req, res) => {
   try {
+    // Define Color Palette (same as generateStatementPDF)
+    const COLOR_SECONDARY_ACCENT_TEAL = '#2D7A8A';
+    const COLOR_TEXT_DARK_CHARCOAL = '#333333';
+    const COLOR_TEXT_MEDIUM_GREY = '#666666';
+
     const accountId = req.params.accountId;
-    const account = await Account.findById(accountId);
+    // Populate user details to get name and potentially email (though email comes from req.user)
+    // Also populate profile to get address
+    const account = await Account.findById(accountId).populate('userId');
     if (!account) return res.status(404).json({ message: 'Account not found' });
+
+    const profile = await Profile.findOne({ userId: account.userId._id });
+    // Handle case where profile might not exist yet
+    const userAddress = profile ? profile.address : 'N/A';
 
     const transactions = await Transaction.find({ accountId }).sort({ date: -1 });
 
+    // --- PDF Generation with Styling (mirrors generateStatementPDF) ---
     const doc = new jsPDF();
-    doc.text(`Bank Statement for ${account.name}`, 10, 10);
-    doc.text(`Account Number: ${account.accountNumber}`, 10, 20);
-    doc.text(`Balance: R ${account.balance}`, 10, 30);
+    doc.setFont('helvetica'); // Set default font
 
-    let y = 40;
+    // Add Bank Header
+    doc.setFontSize(18);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(COLOR_SECONDARY_ACCENT_TEAL);
+    doc.text('YourBank', 105, 15, { align: 'center' });
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(COLOR_TEXT_MEDIUM_GREY);
+    doc.text('123 Bank Street, Financial City, 10001', 105, 22, { align: 'center' });
+    doc.text('Phone: +1 234 567 890 | Email: support@yourbank.com', 105, 28, { align: 'center' });
+
+    // Reset text color
+    doc.setTextColor(COLOR_TEXT_DARK_CHARCOAL);
+
+    // Add Client Information
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(COLOR_SECONDARY_ACCENT_TEAL);
+    doc.text('Client Information', 10, 40);
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(COLOR_TEXT_DARK_CHARCOAL);
+    doc.text(`Name: ${account.userId.name}`, 10, 48);
+    doc.text(`Address: ${userAddress}`, 10, 54);
+
+    // Add Account Information
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(COLOR_SECONDARY_ACCENT_TEAL);
+    doc.text('Account Information', 10, 66);
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(COLOR_TEXT_DARK_CHARCOAL);
+    doc.text(`Account Name: ${account.name}`, 10, 74);
+    doc.text(`Account Number: ${account.accountNumber}`, 10, 80);
+    doc.text(`Balance: R ${account.balance.toFixed(2)}`, 10, 86);
+
+    // Add Transactions Table Header
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(COLOR_SECONDARY_ACCENT_TEAL);
+    doc.text('Transaction History', 10, 98);
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(COLOR_TEXT_DARK_CHARCOAL);
+    doc.text('Date', 10, 106);
+    doc.text('Reference', 60, 106);
+    doc.text('Amount (R)', 190, 106, { align: 'right' });
+
+    // Add Transactions Table Rows
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(COLOR_TEXT_DARK_CHARCOAL);
+    let y = 114;
     transactions.forEach((transaction) => {
-      doc.text(
-        `${new Date(transaction.date).toLocaleDateString()} - ${transaction.reference} - R ${transaction.amount}`,
-        10,
-        y
-      );
-      y += 10;
+      doc.text(new Date(transaction.date).toLocaleDateString(), 10, y);
+      doc.text(transaction.reference || 'N/A', 60, y, { maxWidth: 100 });
+      doc.text(transaction.amount.toFixed(2), 190, y, { align: 'right' });
+      y += 8;
+      if (y > 280) {
+        doc.addPage();
+        y = 20;
+        // Redraw headers on new page
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(COLOR_TEXT_DARK_CHARCOAL);
+        doc.text('Date', 10, y);
+        doc.text('Reference', 60, y);
+        doc.text('Amount (R)', 190, y, { align: 'right' });
+        y += 8;
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(COLOR_TEXT_DARK_CHARCOAL);
+      }
     });
+    // --- End PDF Generation ---
 
     const pdfBuffer = doc.output('arraybuffer');
 
+    // Ensure email configuration is present
+    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+      console.error('Email credentials are not configured in environment variables.');
+      return res.status(500).json({ message: 'Email service not configured.' });
+    }
+    if (!req.user || !req.user.email) {
+      console.error('User email not found in request.');
+      return res.status(400).json({ message: 'User email not available.' });
+    }
+
+
     const transporter = nodemailer.createTransport({
-      service: 'gmail',
+      // Consider using a more robust email service for production
+      service: 'gmail', // Or another service like SendGrid, Mailgun
       auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS,
@@ -208,21 +338,22 @@ export const emailStatement = async (req, res) => {
     });
 
     await transporter.sendMail({
-      from: process.env.EMAIL_USER,
-      to: req.user.email,
-      subject: 'Your Bank Statement',
-      text: 'Please find your bank statement attached.',
+      from: `"YourBank" <${process.env.EMAIL_USER}>`, // Use a display name
+      to: req.user.email, // Send to the logged-in user's email
+      subject: `Your Bank Statement for Account ${account.accountNumber}`, // More specific subject
+      text: `Dear ${account.userId.name},\n\nPlease find your bank statement for account ${account.name} (${account.accountNumber}) attached.\n\nRegards,\nYourBank`, // Improved text body
       attachments: [
         {
-          filename: 'BankStatement.pdf',
+          filename: `BankStatement_${account.accountNumber}_${new Date().toISOString().split('T')[0]}.pdf`, // More specific filename
           content: Buffer.from(pdfBuffer),
+          contentType: 'application/pdf'
         },
       ],
     });
 
     res.status(200).json({ message: 'Bank statement emailed successfully.' });
   } catch (error) {
-    console.error('Error emailing statement:', error.message);
-    res.status(500).json({ message: 'Server error', error: error.message });
+    console.error('Error emailing statement:', error.message, error.stack); // Log stack trace
+    res.status(500).json({ message: 'Server error while emailing statement', error: error.message });
   }
 };
