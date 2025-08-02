@@ -1,5 +1,6 @@
 import Account from '../models/Account.js';
 import Transaction from '../models/Transaction.js'; // Import the Transaction model
+import NotificationService from '../services/notificationService.js';
 
 export const makePayment = async (req, res) => {
   const { beneficiaryAccountNumber, amount, fromAccountId, reference } = req.body;
@@ -9,8 +10,8 @@ export const makePayment = async (req, res) => {
   }
 
   try {
-    // Find the sender's account
-    const senderAccount = await Account.findById(fromAccountId);
+    // Find the sender's account with user details
+    const senderAccount = await Account.findById(fromAccountId).populate('userId');
     if (!senderAccount) {
       return res.status(404).json({ message: 'Sender account not found' });
     }
@@ -20,8 +21,8 @@ export const makePayment = async (req, res) => {
       return res.status(400).json({ message: 'Insufficient balance' });
     }
 
-    // Find the beneficiary's account
-    const beneficiaryAccount = await Account.findOne({ accountNumber: beneficiaryAccountNumber });
+    // Find the beneficiary's account with user details
+    const beneficiaryAccount = await Account.findOne({ accountNumber: beneficiaryAccountNumber }).populate('userId');
     if (!beneficiaryAccount) {
       return res.status(404).json({ message: 'Beneficiary account not found' });
     }
@@ -49,6 +50,14 @@ export const makePayment = async (req, res) => {
       amount,
       reference: `Received from ${senderAccount.accountNumber}`,
     });
+
+    // Send notifications to both parties
+    await NotificationService.sendPaymentNotifications(
+      senderAccount,
+      beneficiaryAccount,
+      amount,
+      reference
+    );
 
     res.status(200).json({ message: 'Payment successful' });
   } catch (error) {

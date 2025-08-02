@@ -8,6 +8,8 @@ import userRoutes from './routes/userRoutes.js';
 import accountRoutes from './routes/accountRoutes.js';
 import beneficiaryRoutes from './routes/beneficiaryRoutes.js';
 import paymentRoutes from './routes/paymentRoutes.js';
+import profileRoutes from './routes/profileRoutes.js'; // Import profileRoutes
+import notificationRoutes from './routes/notificationRoutes.js'; // Import notification routes
 
 dotenv.config();
 connectDB();
@@ -56,6 +58,8 @@ app.use('/api/users', userRoutes);
 app.use('/api/accounts', accountRoutes);
 app.use('/api/beneficiaries', beneficiaryRoutes);
 app.use('/api/payments', paymentRoutes);
+app.use('/api/profile', profileRoutes); // Register profileRoutes
+app.use('/api/notifications', notificationRoutes); // Register notification routes
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

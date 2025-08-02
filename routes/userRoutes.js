@@ -1,5 +1,5 @@
 import express from 'express';
-import { registerUser, loginUser, updateProfile } from '../controllers/userController.js';
+import { registerUser, loginUser } from '../controllers/userController.js';
 import { protect } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
@@ -101,7 +101,5 @@ router.get('/profile', protect, async (req, res) => {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
-
-router.put('/profile', protect, updateProfile); // Add route for updating profile
 
 export default router;
