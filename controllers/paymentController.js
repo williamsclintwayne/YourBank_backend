@@ -1,5 +1,6 @@
 import Account from '../models/Account.js';
 import Transaction from '../models/Transaction.js'; // Import the Transaction model
+import logger from '../utils/logger.js';
 
 export const makePayment = async (req, res) => {
   const { beneficiaryAccountNumber, amount, fromAccountId, reference } = req.body;
@@ -52,7 +53,15 @@ export const makePayment = async (req, res) => {
 
     res.status(200).json({ message: 'Payment successful' });
   } catch (error) {
-    console.error('Error making payment:', error.message);
+    logger.error('Error making payment:', {
+      error: error.message,
+      stack: error.stack,
+      fromAccountId,
+      beneficiaryAccountNumber,
+      amount,
+      userId: req.user?.id,
+      ip: req.ip
+    });
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
