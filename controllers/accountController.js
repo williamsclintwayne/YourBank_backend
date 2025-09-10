@@ -3,6 +3,7 @@ import Account from '../models/Account.js';
 import Transaction from '../models/Transaction.js';
 import Profile from '../models/Profile.js'; // Import the Profile model
 import nodemailer from 'nodemailer';
+import logger from '../utils/logger.js';
 
 // Create a new account
 export const createAccount = async (req, res) => {
@@ -24,7 +25,14 @@ export const createAccount = async (req, res) => {
 
     res.status(201).json(account);
   } catch (error) {
-    console.error('Error creating account:', error.message);
+    logger.error('Error creating account:', {
+      error: error.message,
+      stack: error.stack,
+      userId: req.user?.id,
+      accountName: name,
+      accountType,
+      ip: req.ip
+    });
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
@@ -50,7 +58,13 @@ export const getAccountTransactions = async (req, res) => {
       transactions,
     });
   } catch (error) {
-    console.error('Error fetching transactions:', error.message);
+    logger.error('Error fetching transactions:', {
+      error: error.message,
+      stack: error.stack,
+      accountId: req.params.accountId,
+      userId: req.user?.id,
+      ip: req.ip
+    });
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
@@ -64,7 +78,12 @@ export const getAccounts = async (req, res) => {
     }
     res.status(200).json(accounts);
   } catch (error) {
-    console.error('Error fetching accounts:', error.message);
+    logger.error('Error fetching accounts:', {
+      error: error.message,
+      stack: error.stack,
+      userId: req.user?.id,
+      ip: req.ip
+    });
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
@@ -94,19 +113,30 @@ export const generateStatementPDF = async (req, res) => {
     const accountId = req.params.accountId;
     const account = await Account.findById(accountId).populate('userId'); // Populate user details
     if (!account) {
-      console.error(`Account not found for ID: ${accountId}`);
+      logger.warn(`Account not found for statement generation`, {
+        accountId,
+        userId: req.user?.id,
+        ip: req.ip
+      });
       return res.status(404).json({ message: 'Account not found' });
     }
 
     const profile = await Profile.findOne({ userId: account.userId._id }); // Fetch the user's profile
     if (!profile) {
-      console.error(`Profile not found for user ID: ${account.userId._id}`);
+      logger.warn(`Profile not found for statement generation`, {
+        userId: account.userId._id,
+        accountId,
+        ip: req.ip
+      });
       return res.status(404).json({ message: 'Profile not found' });
     }
 
     const transactions = await Transaction.find({ accountId }).sort({ date: -1 });
     if (!transactions.length) {
-      console.error(`No transactions found for account ID: ${accountId}`);
+      logger.info(`No transactions found for account statement`, {
+        accountId,
+        userId: account.userId._id
+      });
     }
 
     const doc = new jsPDF();
@@ -169,7 +199,13 @@ export const generateStatementPDF = async (req, res) => {
     res.setHeader('Content-Disposition', 'attachment; filename=BankStatement.pdf');
     res.send(Buffer.from(pdfBuffer));
   } catch (error) {
-    console.error('Error generating PDF:', error.message, error.stack);
+    logger.error('Error generating PDF statement:', {
+      error: error.message,
+      stack: error.stack,
+      accountId: req.params.accountId,
+      userId: req.user?.id,
+      ip: req.ip
+    });
     res.status(500).json({ message: 'Server error while generating PDF', error: error.message });
   }
 };
@@ -222,7 +258,14 @@ export const emailStatement = async (req, res) => {
 
     res.status(200).json({ message: 'Bank statement emailed successfully.' });
   } catch (error) {
-    console.error('Error emailing statement:', error.message);
+    logger.error('Error emailing bank statement:', {
+      error: error.message,
+      stack: error.stack,
+      accountId: req.params.accountId,
+      userId: req.user?.id,
+      email: req.body.email,
+      ip: req.ip
+    });
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };

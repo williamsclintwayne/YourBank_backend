@@ -1,4 +1,5 @@
 import Beneficiary from '../models/Beneficiary.js';
+import logger from '../utils/logger.js';
 
 // Get all beneficiaries for the logged-in user
 export const getBeneficiaries = async (req, res) => {
@@ -6,7 +7,12 @@ export const getBeneficiaries = async (req, res) => {
     const beneficiaries = await Beneficiary.find({ userId: req.user.id });
     res.status(200).json(beneficiaries);
   } catch (error) {
-    console.error('Error fetching beneficiaries:', error.message);
+    logger.error('Error fetching beneficiaries:', {
+      error: error.message,
+      stack: error.stack,
+      userId: req.user?.id,
+      ip: req.ip
+    });
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
@@ -27,7 +33,14 @@ export const addBeneficiary = async (req, res) => {
     });
     res.status(201).json(beneficiary);
   } catch (error) {
-    console.error('Error adding beneficiary:', error.message);
+    logger.error('Error adding beneficiary:', {
+      error: error.message,
+      stack: error.stack,
+      userId: req.user?.id,
+      beneficiaryName: name,
+      accountNumber,
+      ip: req.ip
+    });
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };

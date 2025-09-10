@@ -3,6 +3,7 @@ import Profile from '../models/Profile.js'; // Import the Profile model
 import Account from '../models/Account.js';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import logger from '../utils/logger.js';
 
 export const registerUser = async (req, res) => {
   const { name, email, password, idNumber, cellphone, address, title, gender, employmentStatus } = req.body;
@@ -57,7 +58,12 @@ export const registerUser = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Error registering user:', error.message);
+    logger.error('Error registering user:', {
+      error: error.message,
+      stack: error.stack,
+      email,
+      ip: req.ip
+    });
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
@@ -80,7 +86,12 @@ export const loginUser = async (req, res) => {
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
     res.status(200).json({ token });
   } catch (error) {
-    console.error('Error during login:', error.message);
+    logger.error('Error during login:', {
+      error: error.message,
+      stack: error.stack,
+      email,
+      ip: req.ip
+    });
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
@@ -102,7 +113,12 @@ export const updateProfile = async (req, res) => {
     await profile.save();
     res.status(200).json({ message: 'Profile updated successfully', profile });
   } catch (error) {
-    console.error('Error updating profile:', error.message);
+    logger.error('Error updating profile:', {
+      error: error.message,
+      stack: error.stack,
+      userId: req.user?.id,
+      ip: req.ip
+    });
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };

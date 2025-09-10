@@ -1,6 +1,7 @@
 import express from 'express';
 import { registerUser, loginUser, updateProfile } from '../controllers/userController.js';
 import { protect } from '../middleware/authMiddleware.js';
+import logger from '../utils/logger.js';
 
 const router = express.Router();
 
@@ -97,7 +98,12 @@ router.get('/profile', protect, async (req, res) => {
     }
     res.status(200).json({ userId: user });
   } catch (error) {
-    console.error('Error in /profile route:', error.message);
+    logger.error('Error in /profile route:', {
+      error: error.message,
+      stack: error.stack,
+      userId: req.user?.id,
+      ip: req.ip
+    });
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
