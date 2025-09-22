@@ -3,11 +3,8 @@ import Profile from '../models/Profile.js'; // Import the Profile model
 import Account from '../models/Account.js';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-<<<<<<< Updated upstream
-=======
 import logger from '../utils/logger.js';
 import mongoose from 'mongoose';
->>>>>>> Stashed changes
 
 export const registerUser = async (req, res) => {
   const { name, email, password, idNumber, cellphone, address, title, gender, employmentStatus } = req.body;

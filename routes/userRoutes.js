@@ -1,9 +1,5 @@
 import express from 'express';
-<<<<<<< Updated upstream
-import { registerUser, loginUser } from '../controllers/userController.js';
-=======
 import { registerUser, loginUser, updateProfile, getProfile, getProfileByUserId } from '../controllers/userController.js';
->>>>>>> Stashed changes
 import { protect } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
@@ -93,20 +89,6 @@ const router = express.Router();
 router.post('/register', registerUser);
 router.post('/login', loginUser);
 
-<<<<<<< Updated upstream
-router.get('/profile', protect, async (req, res) => {
-  try {
-    const user = req.user; // `protect` middleware attaches the user to the request
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-    res.status(200).json({ userId: user });
-  } catch (error) {
-    console.error('Error in /profile route:', error.message);
-    res.status(500).json({ message: 'Server error', error: error.message });
-  }
-});
-=======
 /**
  * @swagger
  * /api/users/profile:
@@ -152,6 +134,5 @@ router.get('/profile', protect, getProfile);
  *         description: Profile not found
  */
 router.get('/:userId/profile',getProfileByUserId);
->>>>>>> Stashed changes
 
 export default router;
