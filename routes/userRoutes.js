@@ -1,6 +1,7 @@
 import express from 'express';
 import { registerUser, loginUser, updateProfile, getProfile, getProfileByUserId } from '../controllers/userController.js';
 import { protect } from '../middleware/authMiddleware.js';
+import logger from '../utils/logger.js';
 
 const router = express.Router();
 
@@ -89,6 +90,25 @@ const router = express.Router();
 router.post('/register', registerUser);
 router.post('/login', loginUser);
 
+router.get('/profile', protect, async (req, res) => {
+  try {
+    const user = req.user; // `protect` middleware attaches the user to the request
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    res.status(200).json({ userId: user });
+  } catch (error) {
+    logger.error('Error in /profile route:', {
+      error: error.message,
+      stack: error.stack,
+      userId: req.user?.id,
+      ip: req.ip
+    });
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+router.put('/profile', protect, updateProfile); // Add route for updating profile
 /**
  * @swagger
  * /api/users/profile:

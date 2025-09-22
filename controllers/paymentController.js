@@ -2,6 +2,7 @@ import Account from '../models/Account.js';
 import Transaction from '../models/Transaction.js'; // Import the Transaction model
 import NotificationService from '../services/notificationService.js';
 import ProofOfPaymentService from '../services/proofOfPaymentService.js';
+import logger from '../utils/logger.js';
 
 export const makePayment = async (req, res) => {
   const { beneficiaryAccountNumber, amount, fromAccountId, reference } = req.body;
@@ -90,7 +91,15 @@ export const makePayment = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error making payment:', error.message);
+    logger.error('Error making payment:', {
+      error: error.message,
+      stack: error.stack,
+      fromAccountId,
+      beneficiaryAccountNumber,
+      amount,
+      userId: req.user?.id,
+      ip: req.ip
+    });
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
