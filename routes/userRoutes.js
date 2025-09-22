@@ -1,5 +1,9 @@
 import express from 'express';
+<<<<<<< Updated upstream
 import { registerUser, loginUser } from '../controllers/userController.js';
+=======
+import { registerUser, loginUser, updateProfile, getProfile, getProfileByUserId } from '../controllers/userController.js';
+>>>>>>> Stashed changes
 import { protect } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
@@ -89,6 +93,7 @@ const router = express.Router();
 router.post('/register', registerUser);
 router.post('/login', loginUser);
 
+<<<<<<< Updated upstream
 router.get('/profile', protect, async (req, res) => {
   try {
     const user = req.user; // `protect` middleware attaches the user to the request
@@ -101,5 +106,52 @@ router.get('/profile', protect, async (req, res) => {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
+=======
+/**
+ * @swagger
+ * /api/users/profile:
+ *   get:
+ *     summary: Get the profile of the logged-in user
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Profile retrieved successfully
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Profile not found
+ */
+router.get('/profile', protect, getProfile);
+
+// Get a user's profile by userId
+/**
+ * @swagger
+ * /api/users/{userId}/profile:
+ *   get:
+ *     summary: Get a user's profile by userId
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The user's Mongo ObjectId
+ *     responses:
+ *       200:
+ *         description: Profile retrieved successfully
+ *       400:
+ *         description: Invalid userId
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Profile not found
+ */
+router.get('/:userId/profile',getProfileByUserId);
+>>>>>>> Stashed changes
 
 export default router;

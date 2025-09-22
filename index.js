@@ -58,6 +58,22 @@ const swaggerOptions = {
 const swaggerDocs = swaggerJsDoc(swaggerOptions);
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocs));
 
+app.get('/health', (req, res) => {
+  // Create a new Date object
+  const now = new Date();
+  // Format to South African time (SAST, UTC+2)
+  const timestamp = now.toLocaleString('en-ZA', { 
+    timeZone: 'Africa/Johannesburg', 
+    hour12: false 
+  });
+
+  res.json({
+    status: "ok",
+    uptime: process.uptime(), // uptime in seconds
+    timestamp // formatted timestamp in SAST
+  });
+});
+
 // Routes
 app.use('/api/users', userRoutes);
 app.use('/api/accounts', accountRoutes);

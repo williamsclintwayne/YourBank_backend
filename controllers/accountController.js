@@ -1,4 +1,5 @@
 import { jsPDF } from 'jspdf'; // Correct import for jsPDF in Node.js
+import autoTable from 'jspdf-autotable';
 import Account from '../models/Account.js';
 import Transaction from '../models/Transaction.js';
 import Profile from '../models/Profile.js'; // Import the Profile model
@@ -100,14 +101,23 @@ export const generateStatementPDF = async (req, res) => {
     const COLOR_WHITE = '#FFFFFF'; // jsPDF default background
 
     const accountId = req.params.accountId;
-    const account = await Account.findById(accountId).populate('userId'); // Populate user details
+
+    // Fetch account, user and profile
+    const account = await Account.findById(accountId).populate('userId');
     if (!account) {
+<<<<<<< Updated upstream
       console.error(`Account not found for ID: ${accountId}`);
+=======
+      logger.warn('Account not found for statement generation', {
+        accountId, userId: req.user?.id, ip: req.ip
+      });
+>>>>>>> Stashed changes
       return res.status(404).json({ message: 'Account not found' });
     }
 
-    const profile = await Profile.findOne({ userId: account.userId._id }); // Fetch the user's profile
+    const profile = await Profile.findOne({ userId: account.userId._id });
     if (!profile) {
+<<<<<<< Updated upstream
       console.error(`Profile not found for user ID: ${account.userId._id}`);
       return res.status(404).json({ message: 'Profile not found' });
     }
@@ -204,16 +214,282 @@ export const generateStatementPDF = async (req, res) => {
         doc.setFont('helvetica', 'normal');
         doc.setTextColor(COLOR_TEXT_DARK_CHARCOAL);
       }
+=======
+      logger.warn('Profile not found for statement generation', {
+        userId: account.userId._id, accountId, ip: req.ip
+      });
+      return res.status(404).json({ message: 'Profile not found' });
+    }
+
+    // Optional period filter via query: ?from=YYYY-MM-DD&to=YYYY-MM-DD
+    const fromQuery = req.query.from ? new Date(req.query.from) : null;
+    const toQuery = req.query.to ? new Date(req.query.to) : null;
+    if (toQuery) toQuery.setHours(23, 59, 59, 999);
+
+    const dateFilter = {};
+    if (fromQuery) dateFilter.$gte = fromQuery;
+    if (toQuery) dateFilter.$lte = toQuery;
+
+    const txQuery = { accountId };
+    if (fromQuery || toQuery) txQuery.date = dateFilter;
+
+    // Pull transactions newest first from DB
+    const txDesc = await Transaction.find(txQuery).sort({ date: -1 });
+
+    // Prepare data in ascending order for running balance calc
+    const txAsc = [...txDesc].reverse();
+
+    // Helpers
+    const fmtCurrency = (n) =>
+      new Intl.NumberFormat('en-ZA', { style: 'currency', currency: 'ZAR' }).format(Number(n || 0));
+    const fmtDate = (d) =>
+      d ? new Date(d).toLocaleString('en-ZA', { year: 'numeric', month: 'short', day: '2-digit' }) : '';
+    const mask = (s) => {
+      const str = String(s || '');
+      return str ? `•••• ${str.slice(-4)}` : '—';
+    };
+
+    // Compute opening/closing balances and totals
+    const closingBalance = Number(account.balance || 0);
+    const netChange = txAsc.reduce((sum, t) => sum + Number(t.amount || 0), 0);
+    const openingBalance = closingBalance - netChange;
+
+    const totalIn = txAsc.reduce((sum, t) => (Number(t.amount) > 0 ? sum + Number(t.amount) : sum), 0);
+    const totalOut = txAsc.reduce((sum, t) => (Number(t.amount) < 0 ? sum + Number(t.amount) : sum), 0);
+
+    // Build rows with running balance
+    let running = openingBalance;
+    const rows = txAsc.map((t) => {
+      running += Number(t.amount || 0);
+      return {
+        date: fmtDate(t.date),
+        details: t.reference || t.description || '—',
+        type: (t.type || '—').toString(),
+        status: (t.status || '—').toString(),
+        amount: Number(t.amount || 0),
+        amountFmt: (Number(t.amount) < 0 ? '- ' : '+ ') + fmtCurrency(Math.abs(Number(t.amount || 0))),
+        balance: running,
+        balanceFmt: fmtCurrency(running),
+      };
+>>>>>>> Stashed changes
     });
 
-    // Generate PDF Buffer
+    // Determine period text
+    const periodFrom = fromQuery
+      ? fmtDate(fromQuery)
+      : (txAsc[0] ? fmtDate(txAsc[0].date) : fmtDate(new Date()));
+    const periodTo = toQuery
+      ? fmtDate(toQuery)
+      : (txAsc[txAsc.length - 1] ? fmtDate(txAsc[txAsc.length - 1].date) : fmtDate(new Date()));
+
+    // Doc setup
+    const doc = new jsPDF('p', 'pt', 'a4'); // points, A4
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 40;
+
+    // Brand palette (aligned with UI)
+    const brand = {
+      teal: [15, 118, 110],      // #0f766e
+      lightTeal: [20, 184, 166], // #14b8a6
+      slate: [71, 85, 105],      // #475569
+      gray: [100, 116, 139],     // #64748b
+      light: [241, 245, 249],    // #f1f5f9
+      rose: [225, 29, 72],       // #e11d48
+      emerald: [16, 185, 129],   // #10b981
+    };
+
+    // Header / Footer renderer
+    const drawHeader = (docInstance) => {
+      // Top band
+      docInstance.setFillColor(...brand.teal);
+      docInstance.rect(0, 0, pageWidth, 72, 'F');
+
+      // Logo badge
+      const logoX = margin;
+      const logoY = 20;
+      const logoSize = 36;
+      docInstance.setFillColor(255, 255, 255);
+      docInstance.circle(logoX + logoSize / 2, logoY + logoSize / 2, logoSize / 2, 'F');
+      docInstance.setTextColor(...brand.teal);
+      docInstance.setFont('helvetica', 'bold');
+      docInstance.setFontSize(14);
+      docInstance.text('YB', logoX + logoSize / 2, logoY + logoSize / 2 + 5, { align: 'center', baseline: 'middle' });
+
+      // Title
+      docInstance.setTextColor(255, 255, 255);
+      docInstance.setFont('helvetica', 'bold');
+      docInstance.setFontSize(18);
+      docInstance.text('YourBank Account Statement', pageWidth / 2, 32, { align: 'center' });
+      docInstance.setFont('helvetica', 'normal');
+      docInstance.setFontSize(11);
+      docInstance.text('123 Bank Street, Financial City, 10001  •  +27 21 555 5555  •  support@yourbank.com', pageWidth / 2, 50, { align: 'center' });
+    };
+
+    const drawFooter = (docInstance, pageNum, totalPages) => {
+      const y = pageHeight - 30;
+      docInstance.setDrawColor(230);
+      docInstance.line(margin, y - 14, pageWidth - margin, y - 14);
+      docInstance.setFont('helvetica', 'normal');
+      docInstance.setFontSize(10);
+      docInstance.setTextColor(...brand.gray);
+      docInstance.text(`Generated: ${new Date().toLocaleString('en-ZA')}`, margin, y);
+      docInstance.text(`Page ${pageNum} of ${totalPages}`, pageWidth - margin, y, { align: 'right' });
+    };
+
+    // First page header
+    drawHeader(doc);
+
+    // Client & Account summary cards
+    let yCursor = 92;
+
+    // Client Card
+    doc.setFillColor(...brand.light);
+    doc.roundedRect(margin, yCursor, (pageWidth - margin * 2 - 12) / 2, 94, 8, 8, 'F');
+    doc.setTextColor(...brand.slate);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(12);
+    doc.text('Client Information', margin + 12, yCursor + 18);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(11);
+    const clientLines = [
+      `Name: ${account.userId.name || '—'}`,
+      `Email: ${account.userId.email || '—'}`,
+      `Address: ${profile.address || '—'}`,
+    ];
+    clientLines.forEach((t, i) => doc.text(t, margin + 12, yCursor + 40 + i * 16));
+
+    // Account Card
+    const rightX = margin + (pageWidth - margin * 2 - 12) / 2 + 12;
+    doc.roundedRect(rightX, yCursor, (pageWidth - margin * 2 - 12) / 2, 94, 8, 8, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(12);
+    doc.text('Account Information', rightX + 12, yCursor + 18);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(11);
+    const accLines = [
+      `Account Name: ${account.name || '—'}`,
+      `Account Number: ${mask(account.accountNumber)}`,
+      `Period: ${periodFrom} — ${periodTo}`,
+    ];
+    accLines.forEach((t, i) => doc.text(t, rightX + 12, yCursor + 40 + i * 16));
+
+    // Summary chips
+    yCursor += 114;
+    const chip = (x, y, label, value, colorRGB) => {
+      const padX = 8, padY = 6;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      const textW = doc.getTextWidth(`${label}: ${value}`);
+      const w = textW + padX * 2;
+      const h = 22;
+      doc.setDrawColor(...colorRGB);
+      doc.setFillColor(255, 255, 255);
+      doc.roundedRect(x, y, w, h, 10, 10, 'FD');
+      doc.setTextColor(...colorRGB);
+      doc.text(`${label}: ${value}`, x + padX, y + 14);
+      return w + 8; // spacing
+    };
+
+    let chipX = margin;
+    chipX += chip(chipX, yCursor, 'Opening Balance', fmtCurrency(openingBalance), brand.gray);
+    chipX += chip(chipX, yCursor, 'Total In', fmtCurrency(totalIn), brand.emerald);
+    chipX += chip(chipX, yCursor, 'Total Out', fmtCurrency(Math.abs(totalOut)), brand.rose);
+    chipX += chip(chipX, yCursor, 'Closing Balance', fmtCurrency(closingBalance), brand.teal);
+
+    // Transactions table
+    const startY = yCursor + 36;
+
+    const dataForTable = rows.length
+      ? rows.map(r => ({
+          date: r.date,
+          details: r.details,
+          type: r.type,
+          status: r.status,
+          amountFmt: r.amountFmt,
+          balanceFmt: r.balanceFmt,
+          _amountRaw: r.amount, // for coloring
+        }))
+      : [{ date: '', details: 'No transactions in the selected period.', type: '', status: '', amountFmt: '', balanceFmt: '' }];
+
+    autoTable(doc, {
+      startY,
+      head: [[ 'Date', 'Details', 'Type', 'Status', 'Amount (ZAR)', 'Balance' ]],
+      body: dataForTable.map(r => [r.date, r.details, r.type, r.status, r.amountFmt, r.balanceFmt]),
+      theme: 'grid',
+      styles: {
+        font: 'helvetica',
+        fontSize: 10,
+        cellPadding: 6,
+        textColor: [51, 65, 85], // slate-700
+      },
+      headStyles: {
+        fillColor: brand.lightTeal,
+        textColor: [255, 255, 255],
+        fontStyle: 'bold',
+      },
+      alternateRowStyles: { fillColor: [248, 250, 252] }, // slate-50
+      columnStyles: {
+        0: { cellWidth: 74 },
+        1: { cellWidth: 'auto' },
+        2: { cellWidth: 70 },
+        3: { cellWidth: 70 },
+        4: { cellWidth: 100, halign: 'right' },
+        5: { cellWidth: 100, halign: 'right' },
+      },
+      willDrawCell(data) {
+        // Add custom color for amount column
+        if (data.section === 'body' && data.column.index === 4 && rows.length) {
+          const raw = rows[data.row.index]?._amountRaw ?? 0;
+          const isNeg = Number(raw) < 0;
+          doc.setTextColor(...(isNeg ? brand.rose : brand.emerald));
+        } else {
+          doc.setTextColor(51, 65, 85);
+        }
+      },
+      didDrawPage: (data) => {
+        // Header and footer on every page
+        drawHeader(doc);
+        const pageNum = doc.internal.getNumberOfPages();
+        drawFooter(doc, pageNum, '{total_pages_count_string}');
+      },
+      margin: { left: margin, right: margin, top: 120, bottom: 60 },
+    });
+
+    // Replace total pages placeholder
+    if (typeof doc.putTotalPages === 'function') {
+      doc.putTotalPages(String(doc.internal.getNumberOfPages()));
+    }
+
+    // Disclaimer
+    const afterTableY = doc.lastAutoTable?.finalY ? doc.lastAutoTable.finalY + 20 : startY + 40;
+    if (afterTableY + 60 < pageHeight - 60) {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(...brand.gray);
+      const disclaimer = 'This statement is provided for your records. If you notice any discrepancies, please contact support@yourbank.com within 14 days.';
+      doc.text(disclaimer, margin, afterTableY, { maxWidth: pageWidth - margin * 2 });
+    }
+
+    // Output
     const pdfBuffer = doc.output('arraybuffer');
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', 'attachment; filename=BankStatement.pdf');
-    res.send(Buffer.from(pdfBuffer));
+    res.setHeader('Content-Disposition', `attachment; filename=YourBank_Statement_${account.accountNumber}.pdf`);
+    return res.send(Buffer.from(pdfBuffer));
   } catch (error) {
+<<<<<<< Updated upstream
     console.error('Error generating PDF:', error.message, error.stack);
     res.status(500).json({ message: 'Server error while generating PDF', error: error.message });
+=======
+    logger.error('Error generating PDF statement:', {
+      error: error.message,
+      stack: error.stack,
+      accountId: req.params.accountId,
+      userId: req.user?.id,
+      ip: req.ip
+    });
+    return res.status(500).json({ message: 'Server error while generating PDF', error: error.message });
+>>>>>>> Stashed changes
   }
 };
 

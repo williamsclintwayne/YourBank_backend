@@ -3,6 +3,11 @@ import Profile from '../models/Profile.js'; // Import the Profile model
 import Account from '../models/Account.js';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+<<<<<<< Updated upstream
+=======
+import logger from '../utils/logger.js';
+import mongoose from 'mongoose';
+>>>>>>> Stashed changes
 
 export const registerUser = async (req, res) => {
   const { name, email, password, idNumber, cellphone, address, title, gender, employmentStatus } = req.body;
@@ -103,6 +108,55 @@ export const updateProfile = async (req, res) => {
     res.status(200).json({ message: 'Profile updated successfully', profile });
   } catch (error) {
     console.error('Error updating profile:', error.message);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+// Get the profile of the currently authenticated user
+export const getProfile = async (req, res) => {
+  try {
+    const profile = await Profile.findOne({ userId: req.user.id }).populate('userId', 'name email');
+    if (!profile) {
+      return res.status(404).json({ message: 'Profile not found' });
+    }
+
+    res.status(200).json({
+      profile,
+    });
+  } catch (error) {
+    logger.error('Error fetching profile:', {
+      error: error.message,
+      stack: error.stack,
+      userId: req.user?.id,
+      ip: req.ip,
+    });
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+// Get a user's profile by userId param
+export const getProfileByUserId = async (req, res) => {
+  const { userId } = req.params;
+  try {
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: 'Invalid userId' });
+    }
+    const profile = await Profile.findOne({ userId }).populate('userId', 'name email');
+    if (!profile) {
+      return res.status(404).json({ message: 'Profile not found' });
+    }
+
+    res.status(200).json({
+      profile,
+    });
+  } catch (error) {
+    logger.error('Error fetching profile by userId:', {
+      error: error.message,
+      stack: error.stack,
+      paramUserId: userId,
+      requesterUserId: req.user?.id,
+      ip: req.ip,
+    });
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
